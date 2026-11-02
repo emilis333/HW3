@@ -5,6 +5,8 @@
 #SBATCH --mem=2G
 #SBATCH --time=02:00:00
 
+source "$HOME/emilis.sh"
+
 OUT="$HOME/HW3/data/raw"
 mkdir -p "$OUT"
 
