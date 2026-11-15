@@ -1,0 +1,5 @@
+sample	condition	donor	fq1	fq2
+N61311_untreated	untreated	N61311	data/raw/SRR1039508_1.fastq.gz	data/raw/SRR1039508_2.fastq.gz
+N61311_dexamethasone	dexamethasone	N61311	data/raw/SRR1039509_1.fastq.gz	data/raw/SRR1039509_2.fastq.gz
+N052611_albuterol	albuterol	N052611	data/raw/SRR1039514_1.fastq.gz	data/raw/SRR1039514_2.fastq.gz
+N061011_untreated	untreated	N061011	data/raw/SRR1039520_1.fastq.gz	data/raw/SRR1039520_2.fastq.gz
