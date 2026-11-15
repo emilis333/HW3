@@ -9,6 +9,6 @@ mkdir -p "$OUT"
 
 while read gsm; do
     curl -s "https://www.ebi.ac.uk/ena/portal/api/search?result=read_run&query=sample_alias=%22$gsm%22&fields=fastq_ftp&format=tsv" \
-        | grep -o 'ftp[^;[:space:]]*fastq.gz' | xargs -I{} wget -c -P "$OUT" https://{}
+        | grep -o 'ftp[^;[:space:]]*fastq.gz' | xargs -I{} wget -c -nv -P "$OUT" https://{}
 done < "$HOME/HW3/data/assigned.txt"
 
