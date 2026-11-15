@@ -1,0 +1,10 @@
+#!/bin/bash
+#SBATCH --output=logs/snakemake_%j.log
+#SBATCH --cpus-per-task=8
+#SBATCH --mem=16G
+#SBATCH --time=04:00:00
+
+source "$HOME/emilis.sh"
+conda activate snakemake
+cd ~/HW3
+snakemake --use-conda --cores 8
