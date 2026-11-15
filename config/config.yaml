@@ -1,1 +1,5 @@
 samples: config/samples.tsv
+genome_fasta: data/reference/GRCh38.primary_assembly.genome.fa
+gtf: data/reference/gencode.v50.primary_assembly.annotation.gtf
+hisat2_index: data/reference/hisat2_index/GRCh38
+

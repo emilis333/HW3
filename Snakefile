@@ -13,7 +13,8 @@ rule all:
         expand("results/fastqc_raw/{sample}_{read}_fastqc.html",
                sample=SAMPLES, read=["1", "2"]),
         expand("results/fastqc_trimmed/{sample}_{read}_fastqc.html",
-               sample=SAMPLES, read=["1", "2"])
+               sample=SAMPLES, read=["1", "2"]),
+        "results/featurecounts/counts.txt"
 
 rule fastqc_raw:
     input:
@@ -80,3 +81,68 @@ rule fastqc_trimmed:
         "env/fastqc.yaml"
     shell:
         "fastqc -t {threads} -o results/fastqc_trimmed {input} > {log} 2>&1"
+
+rule hisat2_index:
+    input:
+        config["genome_fasta"]
+    output:
+        multiext(config["hisat2_index"], ".1.ht2", ".2.ht2", ".3.ht2", ".4.ht2",
+                 ".5.ht2", ".6.ht2", ".7.ht2", ".8.ht2")
+    params:
+        prefix = config["hisat2_index"]
+    log:
+        "logs/hisat2_index/index.log"
+    threads: 8
+    resources:
+        mem_mb = 32000,
+        runtime = 240
+    conda:
+        "env/align.yaml"
+    shell:
+        "hisat2-build -p {threads} {input} {params.prefix} > {log} 2>&1"
+
+rule hisat2_align:
+    input:
+        r1 = "results/trimmed/{sample}_1.fastq.gz",
+        r2 = "results/trimmed/{sample}_2.fastq.gz",
+        idx = multiext(config["hisat2_index"], ".1.ht2", ".2.ht2", ".3.ht2", ".4.ht2",
+                       ".5.ht2", ".6.ht2", ".7.ht2", ".8.ht2")
+    output:
+        bam = "results/hisat2/{sample}.sorted.bam",
+        bai = "results/hisat2/{sample}.sorted.bam.bai"
+    params:
+        prefix = config["hisat2_index"]
+    log:
+        "logs/hisat2/{sample}.log"
+    threads: 8
+    resources:
+        mem_mb = 16000,
+        runtime = 240
+    conda:
+        "env/align.yaml"
+    shell:
+        """
+        hisat2 -p {threads} -x {params.prefix} -1 {input.r1} -2 {input.r2} 2> {log} \
+          | samtools sort -@ {threads} -o {output.bam} -
+        samtools index {output.bam}
+        """
+
+rule featurecounts:
+    input:
+        bams = expand("results/hisat2/{sample}.sorted.bam", sample=SAMPLES),
+        gtf = config["gtf"]
+    output:
+        "results/featurecounts/counts.txt"
+    log:
+        "logs/featurecounts/featurecounts.log"
+    threads: 8
+    resources:
+        mem_mb = 8000,
+        runtime = 120
+    conda:
+        "env/align.yaml"
+    shell:
+        """
+        featureCounts -T {threads} -p --countReadPairs -s \
+          -t exon -g gene_id -a {input.gtf} -o {output} {input.bams} 2> {log}
+        """
