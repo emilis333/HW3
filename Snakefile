@@ -143,6 +143,6 @@ rule featurecounts:
         "env/align.yaml"
     shell:
         """
-        featureCounts -T {threads} -p --countReadPairs -s \
+        featureCounts -T {threads} -p --countReadPairs \
           -t exon -g gene_id -a {input.gtf} -o {output} {input.bams} 2> {log}
         """
