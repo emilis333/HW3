@@ -18,6 +18,9 @@ rule all:
         expand("results/kallisto/{sample}/abundance.tsv", sample=SAMPLES),
         expand("results/rseqc/{sample}.bam_stat.txt", sample=SAMPLES),
         expand("results/rseqc/{sample}.infer_experiment.txt", sample=SAMPLES),
+        expand("results/rseqc/{sample}.read_distribution.txt", sample=SAMPLES),
+        expand("results/rseqc/{sample}.geneBodyCoverage.txt", sample=SAMPLES),
+        expand("results/rseqc/{sample}.inner_distance_freq.txt", sample=SAMPLES),
 
 rule fastqc_raw:
     input:
@@ -192,10 +195,14 @@ rule gtf_to_bed:
         config["gtf"]
     output:
         config["bed"]
-    conda:
-        "env/rseqc.yaml"
     log:
         "logs/gtf_to_bed/gtf_to_bed.log"
+    threads: 1
+    resources:
+        mem_mb = 4000,
+        runtime = 30
+    conda:
+        "env/rseqc.yaml"
     shell:
         """
         gtfToGenePred {input} {output}.genePred 2> {log}
@@ -203,19 +210,23 @@ rule gtf_to_bed:
         rm {output}.genePred
         """
 
-rule bam_stat:
+rule bam_stat: #a. alignment statistics
     input:
         "results/hisat2/{sample}.sorted.bam"
     output:
         "results/rseqc/{sample}.bam_stat.txt"
     log:
         "logs/bam_stat/{sample}.log"
+    threads: 1
+    resources:
+        mem_mb = 2000,
+        runtime = 60
     conda:
         "env/rseqc.yaml"
     shell:
         "bam_stat.py -i {input} > {output} 2> {log}"
 
-rule infer_experiment:
+rule infer_experiment: #b. strandedness
     input:
         bam = "results/hisat2/{sample}.sorted.bam",
         bed = config["bed"]
@@ -223,7 +234,67 @@ rule infer_experiment:
         "results/rseqc/{sample}.infer_experiment.txt"
     log:
         "logs/infer_experiment/{sample}.log"
+    threads: 1
+    resources:
+        mem_mb = 2000,
+        runtime = 60
     conda:
         "env/rseqc.yaml"
     shell:
         "infer_experiment.py -i {input.bam} -r {input.bed} > {output} 2> {log}"
+
+rule read_distribution: #c. read distribution
+    input:
+        bam = "results/hisat2/{sample}.sorted.bam",
+        bed = config["bed"]
+    output:
+        "results/rseqc/{sample}.read_distribution.txt"
+    log:
+        "logs/read_distribution/{sample}.log"
+    threads: 1
+    resources:
+        mem_mb = 4000,
+        runtime = 120
+    conda:
+        "env/rseqc.yaml"
+    shell:
+        "read_distribution.py -i {input.bam} -r {input.bed} > {output} 2> {log}"
+
+rule gene_body_coverage: #d. gene body coverage
+    input:
+        bam = "results/hisat2/{sample}.sorted.bam",
+        bai = "results/hisat2/{sample}.sorted.bam.bai",
+        bed = config["bed"]
+    output:
+        "results/rseqc/{sample}.geneBodyCoverage.txt"
+    params:
+        prefix = "results/rseqc/{sample}"
+    log:
+        "logs/gene_body_coverage/{sample}.log"
+    threads: 1
+    resources:
+        mem_mb = 8000,
+        runtime = 240
+    conda:
+        "env/rseqc.yaml"
+    shell:
+        "geneBody_coverage.py -i {input.bam} -r {input.bed} -o {params.prefix} > {log} 2>&1"
+
+rule inner_distance: #e. insert size/fragment length distrubution
+    input:
+        bam = "results/hisat2/{sample}.sorted.bam",
+        bed = config["bed"]
+    output:
+        "results/rseqc/{sample}.inner_distance_freq.txt"
+    params:
+        prefix = "results/rseqc/{sample}"
+    log:
+        "logs/inner_distance/{sample}.log"
+    threads: 1
+    resources:
+        mem_mb = 4000,
+        runtime = 120
+    conda:
+        "env/rseqc.yaml"
+    shell:
+        "inner_distance.py -i {input.bam} -r {input.bed} -o {params.prefix} > {log} 2>&1"
