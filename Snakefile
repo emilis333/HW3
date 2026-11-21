@@ -366,7 +366,7 @@ rule plot_pca:
     conda:
         "env/deeptools.yaml"
     shell:
-        "plotPCA -in {input} --transpose -o {output} > {log} 2>&1"
+        "plotPCA -in {input} -o {output} > {log} 2>&1"
 
 rule multiqc:
     input:
