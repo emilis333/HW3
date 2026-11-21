@@ -21,6 +21,9 @@ rule all:
         expand("results/rseqc/{sample}.read_distribution.txt", sample=SAMPLES),
         expand("results/rseqc/{sample}.geneBodyCoverage.txt", sample=SAMPLES),
         expand("results/rseqc/{sample}.inner_distance_freq.txt", sample=SAMPLES),
+        "results/deeptools/correlation_heatmap.png",
+        "results/deeptools/pca.png",
+        "results/multiqc/multiqc_report.html",
 
 rule fastqc_raw:
     input:
@@ -264,7 +267,7 @@ rule gene_body_coverage: #d. gene body coverage
     input:
         bam = "results/hisat2/{sample}.sorted.bam",
         bai = "results/hisat2/{sample}.sorted.bam.bai",
-        bed = config["bed"]
+        bed = config["bed_subset"]
     output:
         "results/rseqc/{sample}.geneBodyCoverage.txt"
     params:
@@ -279,6 +282,18 @@ rule gene_body_coverage: #d. gene body coverage
         "env/rseqc.yaml"
     shell:
         "geneBody_coverage.py -i {input.bam} -r {input.bed} -o {params.prefix} > {log} 2>&1"
+
+rule bed_subset: #every 100th
+    input:
+        config["bed"]
+    output:
+        config["bed_subset"]
+    threads: 1
+    resources:
+        mem_mb = 1000,
+        runtime = 10
+    shell:
+        "awk 'NR % 100 == 0' {input} > {output}"
 
 rule inner_distance: #e. insert size/fragment length distrubution
     input:
@@ -298,3 +313,83 @@ rule inner_distance: #e. insert size/fragment length distrubution
         "env/rseqc.yaml"
     shell:
         "inner_distance.py -i {input.bam} -r {input.bed} -o {params.prefix} > {log} 2>&1"
+
+rule multibamsummary:
+    input:
+        bams = expand("results/hisat2/{sample}.sorted.bam", sample=SAMPLES),
+        bais = expand("results/hisat2/{sample}.sorted.bam.bai", sample=SAMPLES)
+    output:
+        "results/deeptools/readCounts.npz"
+    log:
+        "logs/deeptools/multibamsummary.log"
+    threads: 8
+    resources:
+        mem_mb = 8000,
+        runtime = 120
+    conda:
+        "env/deeptools.yaml"
+    shell:
+        "multiBamSummary bins --bamfiles {input.bams} -p {threads} -o {output} > {log} 2>&1"
+
+rule plot_correlation:
+    input:
+        "results/deeptools/readCounts.npz"
+    output:
+        plot = "results/deeptools/correlation_heatmap.png",
+        tab  = "results/deeptools/correlation_matrix.tab"
+    log:
+        "logs/deeptools/plot_correlation.log"
+    threads: 1
+    resources:
+        mem_mb = 2000,
+        runtime = 30
+    conda:
+        "env/deeptools.yaml"
+    shell:
+        """
+        plotCorrelation -in {input} --corMethod spearman --whatToPlot heatmap \
+          --skipZeros --plotNumbers \
+          -o {output.plot} --outFileCorMatrix {output.tab} > {log} 2>&1
+        """
+
+rule plot_pca:
+    input:
+        "results/deeptools/readCounts.npz"
+    output:
+        "results/deeptools/pca.png"
+    log:
+        "logs/deeptools/plot_pca.log"
+    threads: 1
+    resources:
+        mem_mb = 2000,
+        runtime = 30
+    conda:
+        "env/deeptools.yaml"
+    shell:
+        "plotPCA -in {input} --transpose -o {output} > {log} 2>&1"
+
+rule multiqc:
+    input:
+        expand("results/fastqc_raw/{sample}_{read}_fastqc.zip",
+               sample=SAMPLES, read=["1", "2"]),
+        expand("results/fastqc_trimmed/{sample}_{read}_fastqc.zip",
+               sample=SAMPLES, read=["1", "2"]),
+        "results/featurecounts/counts.txt",
+        expand("results/kallisto/{sample}/run_info.json", sample=SAMPLES),
+        expand("results/rseqc/{sample}.{suffix}", sample=SAMPLES,
+               suffix=["bam_stat.txt", "infer_experiment.txt", "read_distribution.txt",
+                       "geneBodyCoverage.txt", "inner_distance_freq.txt"]),
+        "results/deeptools/correlation_matrix.tab",
+        "results/deeptools/pca.png"
+    output:
+        "results/multiqc/multiqc_report.html"
+    log:
+        "logs/multiqc/multiqc.log"
+    threads: 1
+    resources:
+        mem_mb = 4000,
+        runtime = 30
+    conda:
+        "env/multiqc.yaml"
+    shell:
+        "multiqc results logs -o results/multiqc -n multiqc_report --force > {log} 2>&1"

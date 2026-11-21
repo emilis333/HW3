@@ -5,3 +5,4 @@ hisat2_index: data/reference/hisat2_index/GRCh38
 transcripts: data/reference/gencode.v50.transcripts.fa
 kallisto_index: data/reference/kallisto_index/gencode.v50.idx
 bed: data/reference/gencode.v50.bed
+bed_subset: data/reference/gencode.v50.subset.bed
