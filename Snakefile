@@ -15,7 +15,9 @@ rule all:
         expand("results/fastqc_trimmed/{sample}_{read}_fastqc.html",
                sample=SAMPLES, read=["1", "2"]),
         "results/featurecounts/counts.txt",
-        expand("results/kallisto/{sample}/abundance.tsv", sample=SAMPLES)
+        expand("results/kallisto/{sample}/abundance.tsv", sample=SAMPLES),
+        expand("results/rseqc/{sample}.bam_stat.txt", sample=SAMPLES),
+        expand("results/rseqc/{sample}.infer_experiment.txt", sample=SAMPLES),
 
 rule fastqc_raw:
     input:
@@ -184,3 +186,44 @@ rule kallisto_quant:
         "env/kallisto.yaml"
     shell:
         "kallisto quant -i {input.idx} -o {params.outdir} -t {threads} {input.r1} {input.r2} > {log} 2>&1"
+
+rule gtf_to_bed:
+    input:
+        config["gtf"]
+    output:
+        config["bed"]
+    conda:
+        "env/rseqc.yaml"
+    log:
+        "logs/gtf_to_bed/gtf_to_bed.log"
+    shell:
+        """
+        gtfToGenePred {input} {output}.genePred 2> {log}
+        genePredToBed {output}.genePred {output} 2>> {log}
+        rm {output}.genePred
+        """
+
+rule bam_stat:
+    input:
+        "results/hisat2/{sample}.sorted.bam"
+    output:
+        "results/rseqc/{sample}.bam_stat.txt"
+    log:
+        "logs/bam_stat/{sample}.log"
+    conda:
+        "env/rseqc.yaml"
+    shell:
+        "bam_stat.py -i {input} > {output} 2> {log}"
+
+rule infer_experiment:
+    input:
+        bam = "results/hisat2/{sample}.sorted.bam",
+        bed = config["bed"]
+    output:
+        "results/rseqc/{sample}.infer_experiment.txt"
+    log:
+        "logs/infer_experiment/{sample}.log"
+    conda:
+        "env/rseqc.yaml"
+    shell:
+        "infer_experiment.py -i {input.bam} -r {input.bed} > {output} 2> {log}"
