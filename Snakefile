@@ -157,7 +157,7 @@ rule kallisto_index:
         "logs/kallisto_index/index.log"
     threads: 1
     resources:
-        mem_mb = 16000,
+        mem_mb = 32000,
         runtime = 120
     conda:
         "env/kallisto.yaml"
